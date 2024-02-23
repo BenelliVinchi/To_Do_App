@@ -1,30 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Todo App</title>
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ToDo App</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
+    
 <body>
-    <h1>Todo List</h1>
+    <h1>ToDo App</h1>
+    <form action="/add_task" method="post">
+        <label for="task">Task:</label>
+        <input type="text" id="task" name="task" required>
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" required>
+        <button type="submit">Add Task</button>
+    </form>
     <ul>
         {% for task in tasks %}
-            <li>
-                {{ task.title }} - {{ task.description }} - {{ task.date_created }} - {{ "Completed" if task.completed else "Incomplete" }}
-                <a href="{{ url_for('edit_task', id=task.id) }}">Edit</a>
-                <a href="{{ url_for('complete_task', id=task.id) }}">Mark {{ "Incomplete" if task.completed else "Complete" }}</a>
-                <a href="{{ url_for('delete_task', id=task.id) }}">Delete</a>
+            <li style="color: {% if task.complete %}green{% else %}red{% endif %}">
+                {{ task.text }} ({{ task.date }})
+                {% if not task.complete %}
+                    <a href="/complete_task/{{ task.id }}">Complete</a>
+                {% else %}
+                    <a href="/incomplete_task/{{ task.id }}">Incomplete</a>
+                {% endif %}
+                <a href="/edit_task/{{ task.id }}">Edit</a>
             </li>
         {% endfor %}
     </ul>
-
-    <h2>Add New Task</h2>
-    <form action="/add" method="POST">
-        <label>Title:</label>
-        <input type="text" name="title" required>
-        <label>Description:</label>
-        <textarea name="description"></textarea>
-        <button type="submit">Add Task</button>
-    </form>
 </body>
 </html>
