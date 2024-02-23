@@ -1,62 +1,92 @@
 from flask import Flask, render_template, request, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+import sqlite3
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-class Task(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
-    completed = db.Column(db.Boolean, default=False)
+# Initialize the SQLite database
+conn = sqlite3.connect('tasks.db')
+c = conn.cursor()
+c.execute('''
+    CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT NOT NULL,
+        date TEXT NOT NULL,
+        complete INTEGER NOT NULL
+    )
+''')
+conn.commit()
+conn.close()
+
+def get_tasks():
+    conn = sqlite3.connect('tasks.db')
+    c = conn.cursor()
+    c.execute('SELECT * FROM tasks')
+    tasks = [{'id': row[0], 'text': row[1], 'date': row[2], 'complete': row[3]} for row in c.fetchall()]
+    conn.close()
+    return tasks
+
+def add_task(text, date):
+    conn = sqlite3.connect('tasks.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO tasks (text, date, complete) VALUES (?, ?, 0)', (text, date))
+    conn.commit()
+    conn.close()
+
+def update_task(task_id, text, date):
+    conn = sqlite3.connect('tasks.db')
+    c = conn.cursor()
+    c.execute('UPDATE tasks SET text=?, date=? WHERE id=?', (text, date, task_id))
+    conn.commit()
+    conn.close()
+
+def complete_task(task_id):
+    conn = sqlite3.connect('tasks.db')
+    c = conn.cursor()
+    c.execute('UPDATE tasks SET complete=1 WHERE id=?', (task_id,))
+    conn.commit()
+    conn.close()
+
+def incomplete_task(task_id):
+    conn = sqlite3.connect('tasks.db')
+    c = conn.cursor()
+    c.execute('UPDATE tasks SET complete=0 WHERE id=?', (task_id,))
+    conn.commit()
+    conn.close()
 
 @app.route('/')
 def index():
-    tasks = Task.query.all()
+    tasks = get_tasks()
     return render_template('index.html', tasks=tasks)
 
-@app.route('/add', methods=['POST'])
-def add_task():
-    title = request.form['title']
-    description = request.form['description']
-    new_task = Task(title=title, description=description)
-    db.session.add(new_task)
-    db.session.commit()
+@app.route('/add_task', methods=['POST'])
+def add_task_route():
+    task_text = request.form.get('task')
+    task_date = request.form.get('date')
+    add_task(task_text, task_date)
     return redirect(url_for('index'))
 
-@app.route('/edit/<int:id>', methods=['GET', 'POST'])
-def edit_task(id):
-    task = Task.query.get(id)
-    if request.method == 'POST':
-        task.title = request.form['title']
-        task.description = request.form['description']
-        db.session.commit()
-        return redirect(url_for('index'))
+@app.route('/complete_task/<int:task_id>')
+def complete_task_route(task_id):
+    complete_task(task_id)
+    return redirect(url_for('index'))
+
+@app.route('/incomplete_task/<int:task_id>')
+def incomplete_task_route(task_id):
+    incomplete_task(task_id)
+    return redirect(url_for('index'))
+
+@app.route('/edit_task/<int:task_id>')
+def edit_task(task_id):
+    tasks = get_tasks()
+    task = next((t for t in tasks if t['id'] == task_id), None)
     return render_template('edit.html', task=task)
 
-@app.route('/complete/<int:id>')
-def complete_task(id):
-    task = Task.query.get(id)
-    task.completed = not task.completed
-    db.session.commit()
+@app.route('/update_task/<int:task_id>', methods=['POST'])
+def update_task_route(task_id):
+    task_text = request.form.get('task')
+    task_date = request.form.get('date')
+    update_task(task_id, task_text, task_date)
     return redirect(url_for('index'))
-
-@app.route('/delete/<int:id>')
-def delete_task(id):
-    task = Task.query.get(id)
-    db.session.delete(task)
-    db.session.commit()
-    return redirect(url_for('index'))
-
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
-
-
-
